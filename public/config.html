@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuratore Layout</title>
+<style>
+  :root {
+    --bg: #111;
+    --surface: #1a1a1a;
+    --surface2: #222;
+    --accent: #4a90d9;
+    --accent-hover: #5ba0e9;
+    --danger: #e94560;
+    --success: #00cc66;
+    --text: #e0e0e0;
+    --text-muted: #777;
+    --radius: 8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100vh;
+  }
+
+  /* ── Preview ── */
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+    background: #0a0a0a;
+    padding: 20px;
+  }
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  .preview-header h2 { font-size: 1em; color: var(--text-muted); font-weight: 500; }
+
+  .preview-frame {
+    flex: 1;
+    position: relative;
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 16/9;
+    max-height: 60vh;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .preview-frame .element {
+    position: absolute;
+    padding: 8px;
+    transition: all 0.3s;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    max-width: 85%;
+    word-wrap: break-word;
+  }
+  .preview-frame .element:hover { border-color: var(--accent); }
+  .preview-frame .element.selected { border-color: var(--accent); box-shadow: 0 0 8px rgba(74,144,217,0.4); }
+  .preview-frame .element.hidden { opacity: 0.15; }
+
+  .preview-frame .pos-top-left { top: 8px; left: 12px; }
+  .preview-frame .pos-top-center { top: 8px; left: 50%; transform: translateX(-50%); }
+  .preview-frame .pos-top-right { top: 8px; right: 12px; }
+  .preview-frame .pos-center-left { top: 50%; left: 12px; transform: translateY(-50%); }
+  .preview-frame .pos-center { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; text-align: center; }
+  .preview-frame .pos-center-right { top: 50%; right: 12px; transform: translateY(-50%); }
+  .preview-frame .pos-bottom-left { bottom: 8px; left: 12px; }
+  .preview-frame .pos-bottom-center { bottom: 8px; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; }
+  .preview-frame .pos-bottom-right { bottom: 8px; right: 12px; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid #333;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .sidebar h1 {
+    font-size: 1.1em;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+  }
+
+  /* Sections */
+  .config-section {
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #222;
+  }
+  .config-section:last-child { border-bottom: none; }
+  .config-section h3 {
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  /* Presets */
+  .preset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .preset-btn {
+    background: var(--surface2);
+    color: var(--text);
+    border: 2px solid transparent;
+    padding: 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .preset-btn:hover { border-color: #444; }
+  .preset-btn.active { border-color: var(--accent); background: rgba(74,144,217,0.1); }
+
+  /* Element tabs */
+  .element-tabs {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .element-tab {
+    padding: 6px 10px;
+    background: var(--surface2);
+    border: none;
+    color: var(--text-muted);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8em;
+    transition: all 0.15s;
+  }
+  .element-tab:hover { color: var(--text); }
+  .element-tab.active { background: var(--accent); color: #fff; }
+
+  /* Form controls */
+  .field {
+    margin-bottom: 10px;
+  }
+  .field label {
+    display: block;
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid #333;
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 5px;
+    font-size: 0.9em;
+  }
+  .field input[type="color"] {
+    width: 50px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+  }
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .field-row .field { flex: 1; }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .toggle input { display: none; }
+  .toggle .switch {
+    width: 40px; height: 22px;
+    background: #444;
+    border-radius: 11px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle .switch::after {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    background: #ccc;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform 0.2s;
+  }
+  .toggle input:checked + .switch { background: var(--accent); }
+  .toggle input:checked + .switch::after { transform: translateX(18px); background: #fff; }
+  .toggle span { font-size: 0.85em; }
+
+  /* Action buttons */
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .btn-save {
+    flex: 1;
+    padding: 12px;
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-save:hover { background: #00dd77; }
+  .btn-reset-config {
+    padding: 12px 18px;
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1em;
+    cursor: pointer;
+  }
+
+  .save-feedback {
+    text-align: center;
+    padding: 8px;
+    font-size: 0.85em;
+    color: var(--success);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .save-feedback.visible { opacity: 1; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; }
+    .sidebar { border-left: none; border-top: 1px solid #333; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Preview Panel -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <h2>Anteprima Display</h2>
+      <a href="/display.html" target="_blank" style="color:var(--accent);font-size:0.85em">Apri display ↗</a>
+    </div>
+    <div id="contrast-warning" style="display:none; background:#5a1a1a; border:1px solid #e94560; color:#ffd0d0; padding:8px 12px; border-radius:6px; margin-bottom:10px; font-size:0.85em"></div>
+    <div class="preview-frame" id="preview">
+      <div class="element pos-top-left" id="p-clock" data-element="clock" onclick="selectElement('clock')">14:30:00</div>
+      <div class="element pos-top-center" id="p-live" data-element="live" onclick="selectElement('live')">● LIVE</div>
+      <div class="element pos-top-right" id="p-timer" data-element="timer" onclick="selectElement('timer')">25:00</div>
+      <div class="element pos-center" id="p-verse" data-element="verse" onclick="selectElement('verse')">
+        «Io sono la via, la verità e la vita»
+        Giovanni 14:6
+      </div>
+      <div class="element pos-bottom-left" id="p-title" data-element="title" onclick="selectElement('title')">Cantico 45 — V2</div>
+      <div class="element pos-bottom-right" id="p-scene" data-element="scene" onclick="selectElement('scene')">Camera 1</div>
+      <div class="element pos-bottom-center" id="p-message" data-element="message" onclick="selectElement('message')">Benvenuti alla riunione!</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h1>⚙️ Configuratore Layout</h1>
+
+    <!-- Presets -->
+    <div class="config-section">
+      <h3>Layout Predefiniti</h3>
+      <div class="preset-grid">
+        <button class="preset-btn active" data-preset="standard" onclick="applyPreset('standard')">
+          📋 Standard
+        </button>
+        <button class="preset-btn" data-preset="minimal" onclick="applyPreset('minimal')">
+          ✨ Minimale
+        </button>
+        <button class="preset-btn" data-preset="full" onclick="applyPreset('full')">
+          📊 Completo
+        </button>
+        <button class="preset-btn" data-preset="timer_focus" onclick="applyPreset('timer_focus')">
+          ⏱️ Focus Timer
+        </button>
+        <button class="preset-btn" data-preset="stage24" onclick="applyPreset('stage24')">
+          🖥️ Palco 24″
+        </button>
+      </div>
+    </div>
+
+    <!-- Background -->
+    <div class="config-section">
+      <h3>Sfondo</h3>
+      <div class="field-row">
+        <div class="field">
+          <label>Colore</label>
+          <input type="color" id="bg-color" value="#000000" onchange="updateBackground()">
+        </div>
+        <div class="field" style="flex:3">
+          <label>URL Immagine (opzionale)</label>
+          <input type="text" id="bg-image" placeholder="https://..." onchange="updateBackground()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Element Editor -->
+    <div class="config-section">
+      <h3>Elementi</h3>
+      <div class="element-tabs" id="element-tabs">
+        <button class="element-tab active" onclick="selectElement('verse')">Versetto</button>
+        <button class="element-tab" onclick="selectElement('timer')">Timer</button>
+        <button class="element-tab" onclick="selectElement('clock')">Orologio</button>
+        <button class="element-tab" onclick="selectElement('title')">Titolo</button>
+        <button class="element-tab" onclick="selectElement('message')">Avviso</button>
+        <button class="element-tab" onclick="selectElement('live')">LIVE</button>
+        <button class="element-tab" onclick="selectElement('scene')">Scena</button>
+      </div>
+
+      <div id="element-editor">
+        <label class="toggle">
+          <input type="checkbox" id="el-visible" onchange="updateElement()">
+          <span class="switch"></span>
+          <span>Visibile</span>
+        </label>
+
+        <div class="field">
+          <label>Posizione</label>
+          <select id="el-position" onchange="updateElement()">
+            <option value="top-left">In alto a sinistra</option>
+            <option value="top-center">In alto al centro</option>
+            <option value="top-right">In alto a destra</option>
+            <option value="center-left">Centro sinistra</option>
+            <option value="center">Centro</option>
+            <option value="center-right">Centro destra</option>
+            <option value="bottom-left">In basso a sinistra</option>
+            <option value="bottom-center">In basso al centro</option>
+            <option value="bottom-right">In basso a destra</option>
+          </select>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Dimensione font</label>
+            <input type="number" id="el-fontSize" min="10" max="120" onchange="updateElement()">
+          </div>
+          <div class="field">
+            <label>Colore</label>
+            <input type="color" id="el-fontColor" onchange="updateElement()">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Font</label>
+          <select id="el-fontFamily" onchange="updateElement()">
+            <option value="Georgia, serif">Georgia (Serif)</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Segoe UI', sans-serif">Segoe UI</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'Courier New', monospace">Courier New (Mono)</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+            <option value="Impact, sans-serif">Impact</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Allineamento</label>
+          <select id="el-textAlign" onchange="updateElement()">
+            <option value="left">Sinistra</option>
+            <option value="center">Centro</option>
+            <option value="right">Destra</option>
+          </select>
+        </div>
+
+        <label class="toggle">
+          <input type="checkbox" id="el-textShadow" onchange="updateElement()">
+          <span class="switch"></span>
+          <span>Ombra testo</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn-save" onclick="saveConfig()">💾 Salva Configurazione</button>
+      <button class="btn-reset-config" onclick="resetConfig()">↺</button>
+    </div>
+    <div class="save-feedback" id="save-feedback">✅ Salvato con successo!</div>
+  </div>
+</div>
+
+<script>
+  // ── State ──
+  let config = null;
+  let selectedElement = 'verse';
+  let ws = null;
+
+  const ELEMENT_MAP = {
+    verse: 'p-verse',
+    timer: 'p-timer',
+    clock: 'p-clock',
+    title: 'p-title',
+    message: 'p-message',
+    live: 'p-live',
+    scene: 'p-scene'
+  };
+
+  const PRESETS = {
+    standard: {
+      background: { color: '#000000', image: '' },
+      elements: {
+        verse:   { visible: true,  fontSize: 52, fontColor: '#ffffff', fontFamily: "Georgia, serif", position: 'center', textAlign: 'center', textShadow: true },
+        timer:   { visible: true,  fontSize: 40, fontColor: '#ffd700', fontFamily: "'Courier New', monospace", position: 'top-right', textAlign: 'right', textShadow: true },
+        clock:   { visible: true,  fontSize: 22, fontColor: '#aaaaaa', fontFamily: "'Courier New', monospace", position: 'top-left', textAlign: 'left', textShadow: false },
+        message: { visible: false, fontSize: 28, fontColor: '#00ff88', fontFamily: "Arial, sans-serif", position: 'bottom-center', textAlign: 'center', textShadow: true },
+        title:   { visible: true,  fontSize: 20, fontColor: '#888888', fontFamily: "Arial, sans-serif", position: 'bottom-left', textAlign: 'left', textShadow: false },
+        live:    { visible: true,  fontSize: 26, fontColor: '#ff3333', fontFamily: "Arial, sans-serif", position: 'top-center', textAlign: 'center', textShadow: true },
+        scene:   { visible: true,  fontSize: 20, fontColor: '#66ccff', fontFamily: "Arial, sans-serif", position: 'bottom-right', textAlign: 'right', textShadow: true }
+      }
+    },
+    minimal: {
+      background: { color: '#000000', image: '' },
+      elements: {
+        verse:   { visible: true,  fontSize: 56, fontColor: '#ffffff', fontFamily: "Georgia, serif", position: 'center', textAlign: 'center', textShadow: true },
+        timer:   { visible: false, fontSize: 40, fontColor: '#ffd700', fontFamily: "'Courier New', monospace", position: 'top-right', textAlign: 'right', textShadow: true },
+        clock:   { visible: false, fontSize: 22, fontColor: '#aaaaaa', fontFamily: "'Courier New', monospace", position: 'top-left', textAlign: 'left', textShadow: false },
+        message: { visible: false, fontSize: 28, fontColor: '#00ff88', fontFamily: "Arial, sans-serif", position: 'bottom-center', textAlign: 'center', textShadow: true },
+        title:   { visible: false, fontSize: 20, fontColor: '#888888', fontFamily: "Arial, sans-serif", position: 'bottom-left', textAlign: 'left', textShadow: false },
+        live:    { visible: false, fontSize: 26, fontColor: '#ff3333', fontFamily: "Arial, sans-serif", position: 'top-center', textAlign: 'center', textShadow: true },
+        scene:   { visible: false, fontSize: 20, fontColor: '#66ccff', fontFamily: "Arial, sans-serif", position: 'bottom-right', textAlign: 'right', textShadow: true }
+      }
+    },
+    full: {
+      background: { color: '#0a0a1a', image: '' },
+      elements: {
+        verse:   { visible: true,  fontSize: 48, fontColor: '#ffffff', fontFamily: "Georgia, serif", position: 'center', textAlign: 'center', textShadow: true },
+        timer:   { visible: true,  fontSize: 36, fontColor: '#ffd700', fontFamily: "'Courier New', monospace", position: 'top-right', textAlign: 'right', textShadow: true },
+        clock:   { visible: true,  fontSize: 22, fontColor: '#aaaaaa', fontFamily: "'Courier New', monospace", position: 'top-left', textAlign: 'left', textShadow: false },
+        message: { visible: true,  fontSize: 26, fontColor: '#00ff88', fontFamily: "Arial, sans-serif", position: 'bottom-center', textAlign: 'center', textShadow: true },
+        title:   { visible: true,  fontSize: 18, fontColor: '#888888', fontFamily: "Arial, sans-serif", position: 'bottom-left', textAlign: 'left', textShadow: false },
+        live:    { visible: true,  fontSize: 26, fontColor: '#ff3333', fontFamily: "Arial, sans-serif", position: 'top-center', textAlign: 'center', textShadow: true },
+        scene:   { visible: true,  fontSize: 20, fontColor: '#66ccff', fontFamily: "Arial, sans-serif", position: 'bottom-right', textAlign: 'right', textShadow: true }
+      }
+    },
+    timer_focus: {
+      background: { color: '#000000', image: '' },
+      elements: {
+        verse:   { visible: true,  fontSize: 36, fontColor: '#cccccc', fontFamily: "Georgia, serif", position: 'bottom-center', textAlign: 'center', textShadow: true },
+        timer:   { visible: true,  fontSize: 80, fontColor: '#ffd700', fontFamily: "'Courier New', monospace", position: 'center', textAlign: 'center', textShadow: true },
+        clock:   { visible: true,  fontSize: 28, fontColor: '#aaaaaa', fontFamily: "'Courier New', monospace", position: 'top-right', textAlign: 'right', textShadow: false },
+        message: { visible: false, fontSize: 28, fontColor: '#00ff88', fontFamily: "Arial, sans-serif", position: 'bottom-center', textAlign: 'center', textShadow: true },
+        title:   { visible: false, fontSize: 20, fontColor: '#888888', fontFamily: "Arial, sans-serif", position: 'top-left', textAlign: 'left', textShadow: false },
+        live:    { visible: true,  fontSize: 26, fontColor: '#ff3333', fontFamily: "Arial, sans-serif", position: 'top-center', textAlign: 'center', textShadow: true },
+        scene:   { visible: true,  fontSize: 20, fontColor: '#66ccff', fontFamily: "Arial, sans-serif", position: 'bottom-right', textAlign: 'right', textShadow: true }
+      }
+    },
+    stage24: {
+      background: { color: '#000000', image: '' },
+      elements: {
+        verse:   { visible: true,  fontSize: 68, fontColor: '#ffffff', fontFamily: "Georgia, serif", position: 'center', textAlign: 'center', textShadow: true },
+        timer:   { visible: true,  fontSize: 60, fontColor: '#00cc66', fontFamily: "'Courier New', monospace", position: 'top-right', textAlign: 'right', textShadow: true },
+        clock:   { visible: true,  fontSize: 30, fontColor: '#aaaaaa', fontFamily: "'Courier New', monospace", position: 'top-left', textAlign: 'left', textShadow: false },
+        message: { visible: false, fontSize: 36, fontColor: '#00ff88', fontFamily: "Arial, sans-serif", position: 'bottom-center', textAlign: 'center', textShadow: true },
+        title:   { visible: true,  fontSize: 24, fontColor: '#888888', fontFamily: "Arial, sans-serif", position: 'bottom-left', textAlign: 'left', textShadow: false },
+        live:    { visible: true,  fontSize: 32, fontColor: '#ff3333', fontFamily: "Arial, sans-serif", position: 'top-center', textAlign: 'center', textShadow: true },
+        scene:   { visible: true,  fontSize: 24, fontColor: '#66ccff', fontFamily: "Arial, sans-serif", position: 'bottom-right', textAlign: 'right', textShadow: true }
+      }
+    }
+  };
+
+  // ── Init ──
+  async function init() {
+    try {
+      const res = await fetch('/api/config');
+      config = await res.json();
+    } catch {
+      config = JSON.parse(JSON.stringify(PRESETS.standard));
+      config.preset = 'standard';
+    }
+    renderPreview();
+    selectElement('verse');
+    highlightPreset(config.preset || 'standard');
+    document.getElementById('bg-color').value = config.background?.color || '#000000';
+    document.getElementById('bg-image').value = config.background?.image || '';
+    connectWS();
+  }
+
+  // ── WebSocket ──
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+    ws.onclose = () => setTimeout(connectWS, 2000);
+    ws.onerror = () => ws.close();
+  }
+
+  // ── Controllo contrasto (leggibilità testo su sfondo) ──
+  function hexToRgb(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+    return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : null;
+  }
+  function relLuminance({r, g, b}) {
+    const a = [r, g, b].map(v => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  }
+  function contrastRatio(hex1, hex2) {
+    const c1 = hexToRgb(hex1), c2 = hexToRgb(hex2);
+    if (!c1 || !c2) return 21;
+    const l1 = relLuminance(c1), l2 = relLuminance(c2);
+    const light = Math.max(l1, l2), dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+
+  // Verifica il contrasto di ogni elemento visibile rispetto allo sfondo
+  function checkContrast() {
+    const warn = document.getElementById('contrast-warning');
+    // Se c'è un'immagine di sfondo, il contrasto col colore non è indicativo
+    if (config.background?.image) { warn.style.display = 'none'; return; }
+    const bg = config.background?.color || '#000000';
+
+    const NAMES = { verse:'Versetto', timer:'Timer', clock:'Orologio',
+                    title:'Titolo', message:'Avviso', live:'LIVE', scene:'Scena' };
+    const problems = [];
+    for (const [key, el] of Object.entries(config.elements || {})) {
+      if (!el.visible) continue;
+      const ratio = contrastRatio(el.fontColor, bg);
+      if (ratio < 2.0) {
+        // Contrasto molto basso: praticamente illeggibile (es. nero su nero = 1.0)
+        problems.push({ name: NAMES[key] || key, ratio, invisible: ratio < 1.3 });
+      }
+    }
+
+    if (problems.length === 0) {
+      warn.style.display = 'none';
+    } else {
+      warn.style.display = 'block';
+      const anyInvisible = problems.some(p => p.invisible);
+      const list = problems.map(p =>
+        `${p.name}${p.invisible ? ' (invisibile!)' : ''}`).join(', ');
+      warn.innerHTML = `⚠️ <b>Contrasto insufficiente</b> su sfondo ${bg}: ` +
+        `<b>${list}</b>. ` +
+        (anyInvisible
+          ? 'Il testo ha lo stesso colore dello sfondo e non sarà leggibile sui monitor.'
+          : 'Il testo potrebbe essere difficile da leggere a distanza.') +
+        ' Cambia il colore del testo o dello sfondo.';
+    }
+  }
+
+  // ── Preview Rendering ──
+  function renderPreview() {
+    const preview = document.getElementById('preview');
+    preview.style.backgroundColor = config.background?.color || '#000';
+    if (config.background?.image) {
+      preview.style.backgroundImage = `url(${config.background.image})`;
+      preview.style.backgroundSize = 'cover';
+    } else {
+      preview.style.backgroundImage = 'none';
+    }
+
+    for (const [key, elCfg] of Object.entries(config.elements || {})) {
+      const domId = ELEMENT_MAP[key];
+      const el = document.getElementById(domId);
+      if (!el) continue;
+
+      // Scale font size for preview (preview is smaller)
+      const scale = 0.35;
+      el.style.fontSize = Math.max(8, Math.round(elCfg.fontSize * scale)) + 'px';
+      el.style.color = elCfg.fontColor;
+      el.style.fontFamily = elCfg.fontFamily;
+      el.style.textAlign = elCfg.textAlign || 'left';
+
+      if (elCfg.textShadow) {
+        el.style.textShadow = '1px 1px 4px rgba(0,0,0,0.9)';
+      } else {
+        el.style.textShadow = 'none';
+      }
+
+      // Position
+      el.className = 'element';
+      el.classList.add(`pos-${elCfg.position}`);
+      if (!elCfg.visible) el.classList.add('hidden');
+      if (key === selectedElement) el.classList.add('selected');
+    }
+
+    checkContrast();
+  }
+
+  // ── Element Selection ──
+  function selectElement(key) {
+    selectedElement = key;
+
+    // Update tabs
+    document.querySelectorAll('.element-tab').forEach(tab => tab.classList.remove('active'));
+    const tabs = document.querySelectorAll('.element-tab');
+    const names = ['verse', 'timer', 'clock', 'title', 'message', 'live', 'scene'];
+    const idx = names.indexOf(key);
+    if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
+
+    // Highlight in preview
+    document.querySelectorAll('.preview-frame .element').forEach(el => el.classList.remove('selected'));
+    const previewEl = document.getElementById(ELEMENT_MAP[key]);
+    if (previewEl) previewEl.classList.add('selected');
+
+    // Load values into editor
+    const elCfg = config.elements[key];
+    if (!elCfg) return;
+    document.getElementById('el-visible').checked = elCfg.visible;
+    document.getElementById('el-position').value = elCfg.position;
+    document.getElementById('el-fontSize').value = elCfg.fontSize;
+    document.getElementById('el-fontColor').value = elCfg.fontColor;
+    document.getElementById('el-fontFamily').value = elCfg.fontFamily;
+    document.getElementById('el-textAlign').value = elCfg.textAlign || 'left';
+    document.getElementById('el-textShadow').checked = elCfg.textShadow;
+  }
+
+  // ── Update from editor ──
+  function updateElement() {
+    if (!config.elements[selectedElement]) return;
+    config.elements[selectedElement] = {
+      visible: document.getElementById('el-visible').checked,
+      position: document.getElementById('el-position').value,
+      fontSize: parseInt(document.getElementById('el-fontSize').value) || 20,
+      fontColor: document.getElementById('el-fontColor').value,
+      fontFamily: document.getElementById('el-fontFamily').value,
+      textAlign: document.getElementById('el-textAlign').value,
+      textShadow: document.getElementById('el-textShadow').checked
+    };
+    config.preset = 'custom';
+    highlightPreset('custom');
+    renderPreview();
+  }
+
+  function updateBackground() {
+    config.background = {
+      color: document.getElementById('bg-color').value,
+      image: document.getElementById('bg-image').value.trim()
+    };
+    config.preset = 'custom';
+    highlightPreset('custom');
+    renderPreview();
+  }
+
+  // ── Presets ──
+  function applyPreset(name) {
+    if (!PRESETS[name]) return;
+    config = JSON.parse(JSON.stringify(PRESETS[name]));
+    config.preset = name;
+    highlightPreset(name);
+    document.getElementById('bg-color').value = config.background.color;
+    document.getElementById('bg-image').value = config.background.image;
+    renderPreview();
+    selectElement(selectedElement);
+  }
+
+  function highlightPreset(name) {
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.preset === name);
+    });
+  }
+
+  // ── Save ──
+  async function saveConfig() {
+    try {
+      // Save via REST
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      // Also broadcast via WS
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'config_save', data: config }));
+      }
+      const fb = document.getElementById('save-feedback');
+      fb.classList.add('visible');
+      setTimeout(() => fb.classList.remove('visible'), 2500);
+    } catch (e) {
+      alert('Errore nel salvataggio: ' + e.message);
+    }
+  }
+
+  function resetConfig() {
+    if (confirm('Ripristinare la configurazione predefinita?')) {
+      applyPreset('standard');
+      saveConfig();
+    }
+  }
+
+  // ── Start ──
+  init();
+</script>
+</body>
+</html>

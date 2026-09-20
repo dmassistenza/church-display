@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Regia - Pannello di Controllo</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface2: #0f3460;
+    --accent: #e94560;
+    --accent2: #ffd700;
+    --success: #00cc66;
+    --text: #eee;
+    --text-muted: #888;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 15px;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  header {
+    text-align: center;
+    padding: 10px 0 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 20px;
+  }
+  header h1 { font-size: 1.3em; font-weight: 600; }
+  header .status {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  header .status .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #cc0000;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  header .status .dot.ok { background: var(--success); }
+
+  .section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .icon { font-size: 1.2em; }
+
+  /* ── Timer ── */
+  .timer-display {
+    text-align: center;
+    font-size: 4em;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    padding: 20px 0;
+    color: var(--accent2);
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-display.warning { color: #ff6600; }
+  .timer-display.expired { color: #ff0000; animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  .timer-presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .timer-presets button {
+    background: var(--surface2);
+    color: var(--text);
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .timer-presets button:active { background: var(--accent); }
+
+  .timer-custom {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+  .timer-custom input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 1em;
+    text-align: center;
+    width: 60px;
+  }
+  .timer-custom span { color: var(--text-muted); font-size: 1.2em; }
+
+  .timer-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .timer-adjust {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .btn {
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #fff;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-start { background: var(--success); }
+  .btn-pause { background: #ff8800; }
+  .btn-reset { background: #666; }
+  .btn-add   { background: var(--surface2); color: var(--text); }
+  .btn-send  { background: var(--accent); }
+  .btn-clear { background: #444; }
+  .btn-small { padding: 10px; font-size: 0.85em; }
+
+  /* ── Messages ── */
+  .msg-section { margin-top: 0; }
+  .msg-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .msg-input-row textarea {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 1em;
+    resize: none;
+    font-family: inherit;
+    min-height: 44px;
+    max-height: 100px;
+  }
+  .msg-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .msg-quick button {
+    background: var(--surface2);
+    color: var(--text);
+    border: none;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .msg-quick button:active { background: var(--accent); }
+
+  .msg-history {
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+  .msg-history-item {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .msg-history-item .target {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-right: 5px;
+  }
+  .msg-history-item .target.speaker { background: #553300; color: #ffaa00; }
+  .msg-history-item .target.congregation { background: #003322; color: #00cc66; }
+
+  /* ── OpenLP status ── */
+  .openlp-info {
+    font-size: 0.85em;
+    color: var(--text-muted);
+  }
+  .openlp-info .current-item {
+    color: var(--text);
+    font-size: 1.1em;
+    margin-top: 6px;
+  }
+
+  /* ── Footer links ── */
+  .footer-links {
+    text-align: center;
+    padding: 15px 0;
+    font-size: 0.8em;
+  }
+  .footer-links a {
+    color: var(--accent);
+    text-decoration: none;
+    margin: 0 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎛️ Regia — Pannello di Controllo</h1>
+  <div class="status">
+    <span class="dot" id="ws-dot"></span> Server
+    &nbsp;&nbsp;
+    <span class="dot" id="openlp-dot"></span> OpenLP
+  </div>
+</header>
+
+<!-- ── Proiezione: testo e immagini separati ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">📽️</span> PROIEZIONE SUI MONITOR</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+    <button class="btn" id="toggle-text" onclick="toggleText()"
+            style="padding:16px; font-size:1em; background:var(--success)">
+      📖 Testo<br><span style="font-size:0.8em; font-weight:normal">visibile</span>
+    </button>
+    <button class="btn" id="toggle-image" onclick="toggleImage()"
+            style="padding:16px; font-size:1em; background:var(--success)">
+      🖼️ Immagini<br><span style="font-size:0.8em; font-weight:normal">visibili</span>
+    </button>
+  </div>
+  <div style="font-size:0.75em; color:var(--text-muted); margin-top:10px; text-align:center">
+    Nascondi il <b>testo</b> (versetti e canti) o le <b>immagini</b> in modo indipendente.<br>
+    Orologio, timer e avvisi restano sempre visibili.
+  </div>
+</div>
+
+<!-- ── Timer ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">⏱️</span> TIMER</div>
+  <div class="timer-display" id="timer-display">00:00</div>
+
+  <div class="timer-presets">
+    <button onclick="setPreset(5)">5 min</button>
+    <button onclick="setPreset(10)">10 min</button>
+    <button onclick="setPreset(15)">15 min</button>
+    <button onclick="setPreset(30)">30 min</button>
+  </div>
+
+  <div class="timer-custom">
+    <input type="number" id="custom-min" min="0" max="120" value="0" placeholder="min">
+    <span>:</span>
+    <input type="number" id="custom-sec" min="0" max="59" value="0" placeholder="sec">
+    <button class="btn btn-small btn-add" onclick="setCustomTime()">Imposta</button>
+  </div>
+
+  <div class="timer-controls">
+    <button class="btn btn-start" id="btn-start" onclick="timerStart()">▶ Avvia</button>
+    <button class="btn btn-pause" id="btn-pause" onclick="timerPause()">⏸ Pausa</button>
+    <button class="btn btn-reset" onclick="timerReset()">↺ Reset</button>
+  </div>
+
+  <div class="timer-adjust">
+    <button class="btn btn-small btn-add" onclick="timerAdd(60)">+1 min</button>
+    <button class="btn btn-small btn-add" onclick="timerAdd(-60)">-1 min</button>
+  </div>
+
+  <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08)">
+    <div style="font-size:0.75em; color:var(--text-muted); margin-bottom:8px">ALLO SCADERE:</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+      <button class="btn btn-small btn-add" id="mode-overtime" onclick="setTimerMode('overtime')">➕ Prosegui in rosso</button>
+      <button class="btn btn-small btn-add" id="mode-blink" onclick="setTimerMode('blink')">💥 Lampeggia</button>
+    </div>
+    <div id="blink-secs-row" style="display:flex; align-items:center; gap:8px; margin-top:8px">
+      <span style="font-size:0.8em; color:var(--text-muted)">Durata lampeggio:</span>
+      <input type="number" id="blink-secs" min="1" max="300" value="10"
+             style="width:60px; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); color:var(--text); padding:6px; border-radius:6px; text-align:center"
+             onchange="setTimerMode('blink')">
+      <span style="font-size:0.8em; color:var(--text-muted)">secondi</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Messaggi Oratore ── -->
+<div class="section msg-section">
+  <div class="section-title"><span class="icon">🎤</span> MESSAGGIO ALL'ORATORE
+    <span id="speaker-active" style="display:none; margin-left:auto; background:#553300; color:#ffaa00; padding:2px 10px; border-radius:12px; font-size:0.85em; letter-spacing:0">● ATTIVO</span>
+  </div>
+  <div id="speaker-current" style="display:none; background:rgba(255,170,0,0.08); border-left:3px solid #ffaa00; padding:8px 12px; border-radius:0 6px 6px 0; margin-bottom:10px; font-size:0.85em"></div>
+  <div class="msg-input-row">
+    <textarea id="speaker-msg" rows="1" placeholder="Scrivi messaggio per l'oratore..."></textarea>
+    <button class="btn btn-send btn-small" onclick="sendSpeakerMsg()">Invia</button>
+  </div>
+  <div class="msg-quick">
+    <button onclick="quickSpeaker('5 minuti rimasti')">5 min rimasti</button>
+    <button onclick="quickSpeaker('2 minuti rimasti')">2 min rimasti</button>
+    <button onclick="quickSpeaker('Tempo scaduto')">Tempo scaduto</button>
+    <button onclick="quickSpeaker('Vai avanti')">Vai avanti</button>
+    <button onclick="quickSpeaker('Rallenta')">Rallenta</button>
+    <button onclick="quickSpeaker('Parla più forte')">Più forte</button>
+    <button onclick="quickSpeaker('Microfono!')">Microfono!</button>
+  </div>
+  <button class="btn btn-clear btn-small" style="width:100%" onclick="clearSpeakerMsg()">Cancella messaggio oratore</button>
+</div>
+
+<!-- ── Messaggi Congregazione (su display) ── -->
+<div class="section msg-section">
+  <div class="section-title"><span class="icon">📺</span> AVVISO SU SCHERMO
+    <span id="congregation-active" style="display:none; margin-left:auto; background:#003322; color:#00cc66; padding:2px 10px; border-radius:12px; font-size:0.85em; letter-spacing:0">● SUI MONITOR</span>
+  </div>
+  <div id="congregation-current" style="display:none; background:rgba(0,204,102,0.08); border-left:3px solid #00cc66; padding:8px 12px; border-radius:0 6px 6px 0; margin-bottom:10px; font-size:0.85em"></div>
+  <div class="msg-input-row">
+    <textarea id="congregation-msg" rows="1" placeholder="Messaggio per lo schermo..."></textarea>
+    <button class="btn btn-send btn-small" onclick="sendCongregationMsg()">Invia</button>
+  </div>
+  <div class="msg-quick">
+    <button onclick="quickCongregation('Benvenuti!')">Benvenuti!</button>
+    <button onclick="quickCongregation('La riunione inizierà a breve')">Inizio a breve</button>
+    <button onclick="quickCongregation('Silenzio per favore')">Silenzio</button>
+  </div>
+  <button class="btn btn-clear btn-small" style="width:100%" onclick="clearCongregationMsg()">Cancella avviso schermo</button>
+</div>
+
+<!-- ── Gestione Monitor ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">🖥️</span> MONITOR PROIEZIONE</div>
+  <div id="monitor-list" style="margin-bottom:10px; font-size:0.85em; color:var(--text-muted)">
+    Caricamento monitor...
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+    <button class="btn btn-small btn-add" onclick="cycleMonitor()">🔄 Cicla monitor</button>
+    <button class="btn btn-small btn-add" onclick="restartKiosk()">▶ (Ri)avvia kiosk</button>
+  </div>
+  <div id="monitor-feedback" style="font-size:0.8em; color:var(--success); margin-top:8px; min-height:1em"></div>
+</div>
+
+<!-- ── OBS Live ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔴</span> DIRETTA (OBS)
+    <span id="obs-live-badge" style="display:none; margin-left:auto; background:#330000; color:#ff4444; padding:2px 10px; border-radius:12px; font-size:0.85em; letter-spacing:0">● LIVE</span>
+  </div>
+  <div class="openlp-info">
+    <div>Stato: <span id="obs-status">Nessun dato (bridge OBS non attivo)</span></div>
+    <div class="current-item" id="obs-scene"></div>
+  </div>
+</div>
+
+<!-- ── OpenLP Info ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">📖</span> OPENLP</div>
+  <div class="openlp-info">
+    <div>Stato: <span id="openlp-status">In attesa...</span></div>
+    <div class="current-item" id="openlp-current"></div>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px">
+    <button class="btn btn-small btn-add" onclick="openOpenLPRemote()">↗ Apri telecomando</button>
+    <button class="btn btn-small btn-add" id="btn-embed-openlp" onclick="toggleOpenLPFrame()">▼ Mostra qui</button>
+  </div>
+  <div id="openlp-frame-wrap" style="display:none; margin-top:10px">
+    <iframe id="openlp-frame" style="width:100%; height:70vh; border:1px solid rgba(255,255,255,0.15); border-radius:8px; background:#fff"></iframe>
+  </div>
+</div>
+
+<!-- ── Sistema / Aggiornamenti ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">⬆️</span> SISTEMA
+    <span id="version-badge" style="margin-left:auto; font-size:0.85em; color:var(--text-muted); letter-spacing:0"></span>
+  </div>
+  <div id="update-status" style="font-size:0.85em; color:var(--text-muted); margin-bottom:10px">
+    Premi «Cerca aggiornamenti» per controllare se c'è una versione più recente.
+  </div>
+  <button class="btn btn-small btn-add" id="btn-check-update" style="width:100%" onclick="checkUpdate()">
+    🔎 Cerca aggiornamenti
+  </button>
+  <div id="update-action" style="display:none; margin-top:10px">
+    <div id="update-msg" style="background:rgba(0,204,102,0.08); border-left:3px solid #00cc66; padding:10px 12px; border-radius:0 6px 6px 0; font-size:0.85em; margin-bottom:10px"></div>
+    <button class="btn btn-send" id="btn-apply-update" style="width:100%; padding:14px" onclick="applyUpdate()">
+      ⬇️ Aggiorna adesso
+    </button>
+    <div style="font-size:0.75em; color:var(--text-muted); margin-top:8px; text-align:center">
+      Prima dell'aggiornamento viene creato un backup automatico.<br>
+      Se qualcosa va storto, il sistema torna da solo alla versione precedente.
+    </div>
+  </div>
+</div>
+
+<!-- ── Cronologia messaggi ── -->
+<div class="section">
+  <div class="section-title"><span class="icon">📋</span> CRONOLOGIA MESSAGGI</div>
+  <div class="msg-history" id="msg-history"></div>
+</div>
+
+<div class="footer-links">
+  <a href="/display.html" target="_blank">📺 Display</a>
+  <a href="/prompter.html" target="_blank">🎤 Prompter</a>
+  <a href="/config.html" target="_blank">⚙️ Config</a>
+</div>
+
+<script>
+  let ws = null;
+  let timerData = { remaining: 0, total: 0, running: false };
+  const msgHistory = [];
+
+  // ── WebSocket ──
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+    ws.onopen = () => {
+      document.getElementById('ws-dot').classList.add('ok');
+    };
+    ws.onclose = () => {
+      document.getElementById('ws-dot').classList.remove('ok');
+      setTimeout(connectWS, 2000);
+    };
+    ws.onerror = () => ws.close();
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'timer') {
+          timerData = msg.data;
+          renderTimer();
+          renderTimerBehavior();
+        } else if (msg.type === 'timer_expired') {
+          renderTimer();
+        } else if (msg.type === 'projection') {
+          if (typeof msg.data?.hideText === 'boolean') hideText = msg.data.hideText;
+          if (typeof msg.data?.hideImage === 'boolean') hideImage = msg.data.hideImage;
+          renderProjectionToggles();
+        } else if (msg.type === 'speaker_message') {
+          renderActiveMessage('speaker', msg.data);
+        } else if (msg.type === 'congregation_message') {
+          renderActiveMessage('congregation', msg.data);
+        } else if (msg.type === 'obs') {
+          renderObsStatus(msg.data);
+        }
+      } catch {}
+    };
+  }
+
+  // ── Indicatori messaggi attivi ──
+  function renderActiveMessage(target, data) {
+    const badge = document.getElementById(target + '-active');
+    const box = document.getElementById(target + '-current');
+    if (data?.text) {
+      badge.style.display = '';
+      box.style.display = '';
+      const time = data.timestamp
+        ? new Date(data.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+        : '';
+      box.textContent = `«${data.text}»` + (time ? `  (${time})` : '');
+    } else {
+      badge.style.display = 'none';
+      box.style.display = 'none';
+      box.textContent = '';
+    }
+  }
+
+  // ── Stato OBS ──
+  let obsLastUpdate = 0;
+  function renderObsStatus(data) {
+    obsLastUpdate = Date.now();
+    const badge = document.getElementById('obs-live-badge');
+    const status = document.getElementById('obs-status');
+    const scene = document.getElementById('obs-scene');
+    badge.style.display = data.live ? '' : 'none';
+    status.textContent = data.live ? 'IN DIRETTA' : 'Collegato, non in diretta';
+    scene.textContent = data.scene ? `Scena: ${data.scene}` : '';
+  }
+  setInterval(() => {
+    // Se il bridge OBS smette di mandare aggiornamenti, segnalalo
+    if (obsLastUpdate && Date.now() - obsLastUpdate > 30000) {
+      document.getElementById('obs-status').textContent = 'Nessun aggiornamento da 30s (bridge fermo?)';
+      document.getElementById('obs-live-badge').style.display = 'none';
+    }
+  }, 5000);
+
+  // ── Comportamento timer allo scadere ──
+  function renderTimerBehavior() {
+    const isOvertime = timerData.mode !== 'blink';
+    document.getElementById('mode-overtime').style.background = isOvertime ? 'var(--accent)' : 'var(--surface2)';
+    document.getElementById('mode-blink').style.background = isOvertime ? 'var(--surface2)' : 'var(--accent)';
+    document.getElementById('blink-secs-row').style.opacity = isOvertime ? '0.4' : '1';
+    const input = document.getElementById('blink-secs');
+    if (document.activeElement !== input && timerData.blinkSeconds) {
+      input.value = timerData.blinkSeconds;
+    }
+  }
+
+  function setTimerMode(mode) {
+    const blinkSeconds = parseInt(document.getElementById('blink-secs').value) || 10;
+    send({ type: 'timer_behavior_set', data: { mode, blinkSeconds } });
+  }
+
+  // ── Telecomando OpenLP ──
+  let openlpUrl = null;
+  async function fetchOpenLPInfo() {
+    try {
+      const res = await fetch('/api/openlp-info');
+      const data = await res.json();
+      openlpUrl = data.url;
+    } catch {}
+  }
+
+  function openOpenLPRemote() {
+    if (openlpUrl) window.open(openlpUrl, '_blank');
+    else alert('Indirizzo OpenLP non disponibile');
+  }
+
+  function toggleOpenLPFrame() {
+    const wrap = document.getElementById('openlp-frame-wrap');
+    const frame = document.getElementById('openlp-frame');
+    const btn = document.getElementById('btn-embed-openlp');
+    if (wrap.style.display === 'none') {
+      if (!openlpUrl) { alert('Indirizzo OpenLP non disponibile'); return; }
+      frame.src = openlpUrl;
+      wrap.style.display = '';
+      btn.textContent = '▲ Nascondi';
+    } else {
+      wrap.style.display = 'none';
+      frame.src = 'about:blank';
+      btn.textContent = '▼ Mostra qui';
+    }
+  }
+
+  // ── Proiezione: testo e immagini indipendenti ──
+  let hideText = false;
+  let hideImage = false;
+
+  function renderProjectionToggles() {
+    const bt = document.getElementById('toggle-text');
+    const bi = document.getElementById('toggle-image');
+    bt.style.background = hideText ? '#e94560' : 'var(--success)';
+    bt.innerHTML = '📖 Testo<br><span style="font-size:0.8em; font-weight:normal">' +
+      (hideText ? 'nascosto' : 'visibile') + '</span>';
+    bi.style.background = hideImage ? '#e94560' : 'var(--success)';
+    bi.innerHTML = '🖼️ Immagini<br><span style="font-size:0.8em; font-weight:normal">' +
+      (hideImage ? 'nascoste' : 'visibili') + '</span>';
+  }
+
+  function toggleText() {
+    send({ type: 'projection_set', data: { hideText: !hideText } });
+  }
+
+  function toggleImage() {
+    send({ type: 'projection_set', data: { hideImage: !hideImage } });
+  }
+
+  function send(msg) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+  }
+
+  // ── Timer ──
+  function renderTimer() {
+    const el = document.getElementById('timer-display');
+    el.classList.remove('warning', 'expired');
+
+    if (timerData.overtime > 0) {
+      const m = Math.floor(timerData.overtime / 60);
+      const s = timerData.overtime % 60;
+      el.textContent = `+${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      el.classList.add('expired');
+      el.style.animation = 'none';  // rosso fisso, senza lampeggio
+    } else {
+      el.style.animation = '';
+      const m = Math.floor(timerData.remaining / 60);
+      const s = timerData.remaining % 60;
+      el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      if (timerData.remaining <= 0 && timerData.total > 0 && !timerData.running) {
+        el.classList.add('expired');
+      } else if (timerData.remaining <= 60 && timerData.running) {
+        el.classList.add('warning');
+      }
+    }
+
+    // Aggiorna bottoni
+    document.getElementById('btn-start').style.display = timerData.running ? 'none' : '';
+    document.getElementById('btn-pause').style.display = timerData.running ? '' : 'none';
+  }
+
+  function setPreset(min) {
+    send({ type: 'timer_set', data: { seconds: min * 60 } });
+  }
+
+  function setCustomTime() {
+    const m = parseInt(document.getElementById('custom-min').value) || 0;
+    const s = parseInt(document.getElementById('custom-sec').value) || 0;
+    send({ type: 'timer_set', data: { seconds: m * 60 + s } });
+  }
+
+  function timerStart() { send({ type: 'timer_start' }); }
+  function timerPause() { send({ type: 'timer_pause' }); }
+  function timerReset() { send({ type: 'timer_reset' }); }
+  function timerAdd(sec) { send({ type: 'timer_add', data: { seconds: sec } }); }
+
+  // ── Messaggi ──
+  function sendSpeakerMsg() {
+    const el = document.getElementById('speaker-msg');
+    if (!el.value.trim()) return;
+    send({ type: 'speaker_message', data: { text: el.value.trim(), from: 'Regia' } });
+    addToHistory('speaker', el.value.trim());
+    el.value = '';
+  }
+
+  function quickSpeaker(text) {
+    send({ type: 'speaker_message', data: { text, from: 'Regia' } });
+    addToHistory('speaker', text);
+  }
+
+  function clearSpeakerMsg() {
+    send({ type: 'clear_speaker_message' });
+  }
+
+  function sendCongregationMsg() {
+    const el = document.getElementById('congregation-msg');
+    if (!el.value.trim()) return;
+    send({ type: 'congregation_message', data: { text: el.value.trim(), from: 'Regia' } });
+    addToHistory('congregation', el.value.trim());
+    el.value = '';
+  }
+
+  function quickCongregation(text) {
+    send({ type: 'congregation_message', data: { text, from: 'Regia' } });
+    addToHistory('congregation', text);
+  }
+
+  function clearCongregationMsg() {
+    send({ type: 'clear_congregation_message' });
+  }
+
+  function addToHistory(target, text) {
+    const time = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    msgHistory.unshift({ target, text, time });
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const el = document.getElementById('msg-history');
+    el.innerHTML = msgHistory.slice(0, 20).map(m =>
+      `<div class="msg-history-item">
+        <span class="target ${m.target}">${m.target === 'speaker' ? 'ORATORE' : 'SCHERMO'}</span>
+        ${m.time} — ${m.text}
+      </div>`
+    ).join('');
+  }
+
+  // ── OpenLP Polling ──
+  async function pollOpenLP() {
+    try {
+      const res = await fetch('/openlp/api/controller/live/text');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      document.getElementById('openlp-dot').classList.add('ok');
+      document.getElementById('openlp-status').textContent = 'Connesso';
+
+      const slides = data.results?.slides || [];
+      const title = data.results?.item || '';
+      const active = slides.find(s => s.selected);
+      const tag = active?.tag || '';
+
+      let display = title;
+      if (tag) display += ` — ${tag}`;
+      if (active?.text) display += `: "${active.text.substring(0, 80)}..."`;
+      else if (active?.img || (active && !active.text)) display += ' — 🖼 immagine/slide';
+      document.getElementById('openlp-current').textContent = display;
+    } catch {
+      document.getElementById('openlp-dot').classList.remove('ok');
+      document.getElementById('openlp-status').textContent = 'Non connesso';
+      document.getElementById('openlp-current').textContent = '';
+    }
+  }
+
+  // ── Gestione Monitor ──
+  async function loadMonitors() {
+    const el = document.getElementById('monitor-list');
+    try {
+      const res = await fetch('/api/display/monitors');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (!data.monitors?.length) {
+        el.textContent = 'Nessun monitor rilevato';
+        return;
+      }
+      el.innerHTML = data.monitors.map(m => {
+        const label = m.internal ? '💻 ' + m.name + ' (portatile)' : '🖥️ ' + m.name + ' (esterno)';
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05)">
+          <span>${label} — ${m.width}×${m.height}${m.primary ? ' ⭐' : ''}</span>
+          <button class="btn btn-small btn-add" style="padding:5px 12px" onclick="moveToMonitor('${m.name}')">Sposta qui</button>
+        </div>`;
+      }).join('');
+    } catch {
+      el.textContent = 'Gestione monitor non disponibile (server non su Linux?)';
+    }
+  }
+
+  function monitorFeedback(text, isError) {
+    const fb = document.getElementById('monitor-feedback');
+    fb.textContent = text;
+    fb.style.color = isError ? '#e94560' : 'var(--success)';
+    setTimeout(() => { fb.textContent = ''; }, 4000);
+  }
+
+  async function moveToMonitor(name) {
+    try {
+      const res = await fetch('/api/display/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: name })
+      });
+      const data = await res.json();
+      if (data.ok) monitorFeedback(`✅ Display spostato su ${name}`);
+      else monitorFeedback('❌ ' + (data.detail || data.error), true);
+    } catch (e) {
+      monitorFeedback('❌ Errore di rete', true);
+    }
+  }
+
+  async function cycleMonitor() {
+    try {
+      const res = await fetch('/api/display/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.ok) monitorFeedback('✅ Display spostato al monitor successivo');
+      else monitorFeedback('❌ ' + (data.detail || data.error), true);
+    } catch {
+      monitorFeedback('❌ Errore di rete', true);
+    }
+  }
+
+  async function restartKiosk() {
+    try {
+      await fetch('/api/display/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      monitorFeedback('✅ Kiosk in avvio... (attendi qualche secondo)');
+    } catch {
+      monitorFeedback('❌ Errore di rete', true);
+    }
+  }
+
+  // ── Textarea auto-resize ──
+  document.querySelectorAll('textarea').forEach(ta => {
+    ta.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
+    ta.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.closest('.msg-input-row').querySelector('.btn-send').click();
+      }
+    });
+  });
+
+  // ── Init ──
+  connectWS();
+  renderTimer();
+  setInterval(pollOpenLP, 2000);
+  pollOpenLP();
+  loadMonitors();
+  setInterval(loadMonitors, 30000);
+  fetchOpenLPInfo();
+  loadVersion();
+
+  // ── Aggiornamenti da GitHub ──
+  let pendingUpdate = null;
+
+  async function loadVersion() {
+    try {
+      const r = await fetch('/api/version');
+      const d = await r.json();
+      document.getElementById('version-badge').textContent = 'v' + d.version;
+    } catch {}
+  }
+
+  async function checkUpdate() {
+    const btn = document.getElementById('btn-check-update');
+    const status = document.getElementById('update-status');
+    const action = document.getElementById('update-action');
+    btn.disabled = true;
+    btn.textContent = '⏳ Controllo in corso...';
+    action.style.display = 'none';
+    try {
+      const r = await fetch('/api/update/check');
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || d.error || 'errore');
+      if (d.updateAvailable) {
+        pendingUpdate = d;
+        status.textContent = '';
+        document.getElementById('update-msg').innerHTML =
+          `È disponibile la versione <b>v${d.latest}</b> (hai la v${d.current}).`;
+        action.style.display = 'block';
+      } else {
+        status.innerHTML = `✅ Sei già aggiornato (v${d.current}).`;
+      }
+    } catch (e) {
+      status.innerHTML = `❌ Controllo non riuscito: ${String(e.message).slice(0,120)}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔎 Cerca aggiornamenti';
+    }
+  }
+
+  async function applyUpdate() {
+    if (!pendingUpdate) return;
+    const ok = confirm(
+      `Aggiornare alla versione v${pendingUpdate.latest}?\n\n` +
+      `• Verrà creato un backup automatico\n` +
+      `• Il display si riavvierà per pochi secondi\n` +
+      `• In caso di problemi il sistema torna da solo alla v${pendingUpdate.current}\n\n` +
+      `Procedere ora?`
+    );
+    if (!ok) return;
+
+    const btn = document.getElementById('btn-apply-update');
+    btn.disabled = true;
+    btn.textContent = '⏳ Aggiornamento in corso...';
+    const status = document.getElementById('update-status');
+    document.getElementById('update-action').style.display = 'none';
+    status.innerHTML = '⏳ Backup e aggiornamento in corso, il server si riavvierà...';
+
+    try {
+      await fetch('/api/update/apply', { method: 'POST' });
+    } catch {}
+
+    // Il server si riavvia: aspetta che torni su e confronta la versione
+    const target = pendingUpdate.latest;
+    const prev = pendingUpdate.current;
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const r = await fetch('/api/version', { cache: 'no-store' });
+        const d = await r.json();
+        if (d.version === target) {
+          clearInterval(poll);
+          status.innerHTML = `✅ Aggiornato alla v${d.version}! Ricarico le pagine...`;
+          document.getElementById('version-badge').textContent = 'v' + d.version;
+          setTimeout(() => location.reload(), 2000);
+        } else if (d.version === prev && attempts > 25) {
+          // Tornato su con la vecchia versione = rollback avvenuto
+          clearInterval(poll);
+          status.innerHTML = `⚠️ Aggiornamento non riuscito: ripristinata la v${prev} dal backup. ` +
+            `Il sistema è tornato funzionante. Controlla la connessione a GitHub.`;
+          btn.disabled = false;
+          btn.textContent = '⬇️ Aggiorna adesso';
+        }
+      } catch {
+        // server ancora giù durante il riavvio: normale, continua ad attendere
+      }
+      if (attempts > 60) {
+        clearInterval(poll);
+        status.innerHTML = '⚠️ Il server impiega più del previsto. Ricarica la pagina tra poco.';
+      }
+    }, 2000);
+  }
+</script>
+</body>
+</html>

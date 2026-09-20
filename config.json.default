@@ -1,0 +1,76 @@
+{
+  "preset": "standard",
+  "background": {
+    "color": "#000000",
+    "image": ""
+  },
+  "timerBehavior": {
+    "mode": "overtime",
+    "blinkSeconds": 10
+  },
+  "elements": {
+    "verse": {
+      "visible": true,
+      "fontSize": 52,
+      "fontColor": "#ffffff",
+      "fontFamily": "Georgia, serif",
+      "position": "center",
+      "textAlign": "center",
+      "textShadow": true
+    },
+    "timer": {
+      "visible": true,
+      "fontSize": 40,
+      "fontColor": "#ffd700",
+      "fontFamily": "'Courier New', monospace",
+      "position": "top-right",
+      "textAlign": "right",
+      "textShadow": true
+    },
+    "clock": {
+      "visible": true,
+      "fontSize": 22,
+      "fontColor": "#aaaaaa",
+      "fontFamily": "'Courier New', monospace",
+      "position": "top-left",
+      "textAlign": "left",
+      "textShadow": false
+    },
+    "message": {
+      "visible": false,
+      "fontSize": 28,
+      "fontColor": "#00ff88",
+      "fontFamily": "Arial, sans-serif",
+      "position": "bottom-center",
+      "textAlign": "center",
+      "textShadow": true
+    },
+    "title": {
+      "visible": true,
+      "fontSize": 20,
+      "fontColor": "#888888",
+      "fontFamily": "Arial, sans-serif",
+      "position": "bottom-left",
+      "textAlign": "left",
+      "textShadow": false
+    },
+    "live": {
+      "visible": true,
+      "fontSize": 26,
+      "fontColor": "#ff3333",
+      "fontFamily": "Arial, sans-serif",
+      "position": "top-center",
+      "textAlign": "center",
+      "textShadow": true
+    },
+    "scene": {
+      "visible": true,
+      "fontSize": 20,
+      "fontColor": "#66ccff",
+      "fontFamily": "Arial, sans-serif",
+      "position": "bottom-right",
+      "textAlign": "right",
+      "textShadow": true
+    }
+  }
+}

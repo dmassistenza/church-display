@@ -1,0 +1,15 @@
+{
+  "name": "church-display",
+  "version": "1.0.0",
+  "description": "Sistema di proiezione per chiesa con integrazione OpenLP, timer e comunicazione oratore",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.0",
+    "ws": "^8.18.0"
+  }
+}

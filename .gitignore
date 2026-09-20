@@ -1,0 +1,24 @@
+# ═══ Church Display — file esclusi dal repository ═══
+
+# Dipendenze (reinstallate da npm install)
+node_modules/
+
+# Configurazione e dati dell'utente — NON devono finire su GitHub
+# né essere sovrascritti dagli aggiornamenti
+.env
+config.json
+
+# Backup creati prima degli aggiornamenti
+.backups/
+
+# Log
+*.log
+bridge.log
+
+# File temporanei Python
+__pycache__/
+*.pyc
+
+# File di sistema
+.DS_Store
+Thumbs.db

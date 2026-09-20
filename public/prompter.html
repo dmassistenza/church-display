@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompter — Vista Oratore</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top bar ── */
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: #111;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+  }
+  .clock {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5em;
+    color: #888;
+  }
+  .timer-box {
+    font-family: 'Courier New', monospace;
+    font-size: 2.2em;
+    font-weight: bold;
+    color: #ffd700;
+    font-variant-numeric: tabular-nums;
+    min-width: 120px;
+    text-align: center;
+  }
+  .timer-box.warning { color: #ff6600; }
+  .timer-box.expired { color: #ff0000; animation: pulse 1s infinite; }
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #333;
+    display: inline-block;
+  }
+  .status-dot.ok { background: #00cc44; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  /* ── Message banner ── */
+  .message-banner {
+    background: #1a0a00;
+    border-bottom: 2px solid #ff6600;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    flex-shrink: 0;
+  }
+  .message-banner.visible {
+    max-height: 200px;
+    padding: 15px 25px;
+  }
+  .message-banner .msg-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #ff6600;
+    margin-bottom: 5px;
+  }
+  .message-banner .msg-text {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #ffcc00;
+    line-height: 1.3;
+  }
+  .message-banner .msg-from {
+    font-size: 0.75em;
+    color: #666;
+    margin-top: 5px;
+  }
+
+  /* ── Main content ── */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Current slide ── */
+  .current-slide {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 30px 40px;
+    border-bottom: 1px solid #222;
+  }
+  .slide-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #555;
+    margin-bottom: 10px;
+  }
+  .slide-title {
+    font-size: 0.95em;
+    color: #666;
+    margin-bottom: 12px;
+  }
+  .slide-tag {
+    display: inline-block;
+    background: #222;
+    color: #aaa;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-left: 8px;
+  }
+  .slide-text {
+    font-size: 2em;
+    line-height: 1.5;
+    color: #ffffff;
+    white-space: pre-wrap;
+    font-family: Georgia, serif;
+    transition: opacity 0.3s;
+  }
+
+  /* ── Next slide ── */
+  .next-slide {
+    flex: 1;
+    padding: 20px 40px;
+    background: #0d0d0d;
+    overflow: hidden;
+  }
+  .next-slide .slide-text {
+    font-size: 1.1em;
+    color: #555;
+  }
+
+  /* ── Progress bar ── */
+  .slide-progress {
+    height: 3px;
+    background: #222;
+    flex-shrink: 0;
+  }
+  .slide-progress .bar {
+    height: 100%;
+    background: #ffd700;
+    transition: width 0.3s;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .slide-text { font-size: 1.4em; }
+    .timer-box { font-size: 1.5em; }
+    .next-slide .slide-text { font-size: 0.9em; }
+    .current-slide { padding: 15px 20px; }
+    .next-slide { padding: 10px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <div>
+    <span class="status-dot" id="ws-dot"></span>
+    <span class="status-dot" id="openlp-dot" style="margin-left:5px"></span>
+    <span id="projection-indicator" style="display:none; margin-left:12px; color:#ff4444; font-size:0.85em; font-weight:bold">📽️ PROIEZIONE NASCOSTA</span>
+    <span id="live-indicator" style="display:none; margin-left:12px; color:#ff2222; font-size:0.85em; font-weight:bold; animation:pulse 1.6s infinite">● LIVE</span>
+  </div>
+  <div class="timer-box" id="timer">--:--</div>
+  <div class="clock" id="clock"></div>
+</div>
+
+<!-- Message Banner -->
+<div class="message-banner" id="message-banner">
+  <div class="msg-label">📩 Messaggio dalla regia</div>
+  <div class="msg-text" id="msg-text"></div>
+  <div class="msg-from" id="msg-from"></div>
+</div>
+
+<!-- Slide Progress -->
+<div class="slide-progress">
+  <div class="bar" id="progress-bar" style="width: 0%"></div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <div class="current-slide">
+    <div class="slide-label">📖 Slide corrente</div>
+    <div class="slide-title" id="current-title"></div>
+    <div class="slide-text" id="current-text"></div>
+  </div>
+  <div class="next-slide">
+    <div class="slide-label">⏭ Prossima</div>
+    <div class="slide-text" id="next-text"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  let ws = null;
+  let lastPollItem = '';
+
+  // ── WebSocket ──
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+    ws.onopen = () => document.getElementById('ws-dot').classList.add('ok');
+    ws.onclose = () => {
+      document.getElementById('ws-dot').classList.remove('ok');
+      setTimeout(connectWS, 2000);
+    };
+    ws.onerror = () => ws.close();
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        handleMessage(msg);
+      } catch {}
+    };
+  }
+
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'timer':
+        updateTimer(msg.data);
+        break;
+      case 'timer_expired': {
+        const t = document.getElementById('timer');
+        if (msg.data?.mode === 'blink') {
+          t.classList.add('expired');
+          const secs = (msg.data?.blinkSeconds || 10) * 1000;
+          clearTimeout(window._blinkT);
+          window._blinkT = setTimeout(() => t.classList.remove('expired'), secs);
+        } else {
+          t.classList.add('expired');
+          setTimeout(() => t.classList.remove('expired'), 3000);
+        }
+        break;
+      }
+      case 'speaker_message':
+        showMessage(msg.data);
+        break;
+      case 'projection': {
+        const ind = document.getElementById('projection-indicator');
+        const ht = !!msg.data?.hideText, hi = !!msg.data?.hideImage;
+        if (ht && hi) { ind.textContent = '📽️ PROIEZIONE NASCOSTA'; ind.style.display = 'inline'; }
+        else if (ht) { ind.textContent = '📽️ TESTO NASCOSTO'; ind.style.display = 'inline'; }
+        else if (hi) { ind.textContent = '📽️ IMMAGINI NASCOSTE'; ind.style.display = 'inline'; }
+        else { ind.style.display = 'none'; }
+        break;
+      }
+      case 'obs':
+        document.getElementById('live-indicator').style.display =
+          msg.data?.live ? 'inline' : 'none';
+        break;
+    }
+  }
+
+  // ── Timer ──
+  function updateTimer(data) {
+    const el = document.getElementById('timer');
+    if (data.total === 0 && data.remaining === 0 && !data.overtime) {
+      el.textContent = '--:--';
+      el.classList.remove('warning', 'expired');
+      return;
+    }
+    el.classList.remove('warning');
+
+    if (data.overtime > 0) {
+      const m = Math.floor(data.overtime / 60);
+      const s = data.overtime % 60;
+      el.textContent = `+${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      el.style.color = '#ff2222';
+    } else {
+      el.style.color = '';
+      const m = Math.floor(data.remaining / 60);
+      const s = data.remaining % 60;
+      el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      if (data.remaining <= 120 && data.running) {
+        el.classList.add('warning');
+      }
+    }
+  }
+
+  // ── Message ──
+  function showMessage(data) {
+    const banner = document.getElementById('message-banner');
+    const textEl = document.getElementById('msg-text');
+    const fromEl = document.getElementById('msg-from');
+
+    if (data.text) {
+      textEl.textContent = data.text;
+      fromEl.textContent = data.from ? `da ${data.from} — ${new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'})}` : '';
+      banner.classList.add('visible');
+
+      // Vibrazione leggera se supportata
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    } else {
+      banner.classList.remove('visible');
+    }
+  }
+
+  // ── Clock ──
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  // ── Fetch con timeout ──
+  function fetchT(url, ms = 2000) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+  }
+
+  // ── OpenLP ──
+  let pollInFlight = false;
+  async function pollOpenLP() {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    try {
+      const pollRes = await fetchT('/openlp/api/poll');
+      if (!pollRes.ok) throw new Error();
+      const pollData = await pollRes.json();
+      document.getElementById('openlp-dot').classList.add('ok');
+
+      const key = `${pollData.results?.item}_${pollData.results?.slide}`;
+      if (key !== lastPollItem) {
+        lastPollItem = key;
+        await fetchSlides();
+      }
+    } catch {
+      document.getElementById('openlp-dot').classList.remove('ok');
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  async function fetchSlides() {
+    try {
+      const res = await fetchT('/openlp/api/controller/live/text', 3000);
+      if (!res.ok) return;
+      const data = await res.json();
+      const slides = data.results?.slides || [];
+      const title = data.results?.item || '';
+
+      const activeIdx = slides.findIndex(s => s.selected);
+      const active = slides[activeIdx] || slides[0];
+      const next = slides[activeIdx + 1] || null;
+
+      // Titolo + tag
+      const titleEl = document.getElementById('current-title');
+      if (active?.tag) {
+        titleEl.innerHTML = `${escapeHtml(title)} <span class="slide-tag">${escapeHtml(active.tag)}</span>`;
+      } else {
+        titleEl.textContent = title;
+      }
+
+      // Slide corrente e successiva (testo o immagine)
+      renderSlide(document.getElementById('current-text'), active, 'corrente');
+      if (next) {
+        renderSlide(document.getElementById('next-text'), next, 'successiva');
+      } else {
+        document.getElementById('next-text').textContent = '— Fine dell\'elemento —';
+      }
+
+      // Barra progresso
+      if (slides.length > 1) {
+        const pct = ((activeIdx + 1) / slides.length) * 100;
+        document.getElementById('progress-bar').style.width = pct + '%';
+      } else {
+        document.getElementById('progress-bar').style.width = '100%';
+      }
+    } catch {}
+  }
+
+  // Mostra una slide nel prompter: testo, oppure miniatura se è un'immagine
+  function renderSlide(el, slide, label) {
+    let text = cleanText(slide?.text || '');
+    if (!text.trim() && slide?.html) text = cleanText(slide.html);
+    const isImage = !!(slide && slide.img);
+
+    if (isImage) {
+      const src = '/openlp' + (slide.img.startsWith('/') ? '' : '/') + slide.img;
+      el.innerHTML = `<img src="${escapeHtml(src)}" alt="Slide ${label}" ` +
+        `style="max-width:100%; max-height:22vh; border-radius:4px; display:block">`;
+    } else {
+      el.textContent = text;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function cleanText(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  }
+
+  // ── Init ──
+  connectWS();
+  setInterval(updateClock, 1000);
+  updateClock();
+  setInterval(pollOpenLP, 500);
+
+  // Fullscreen su doppio click
+  document.addEventListener('dblclick', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

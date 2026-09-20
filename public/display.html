@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Church Display</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    font-family: Georgia, serif;
+    cursor: none;
+  }
+
+  #display-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── Posizioni ── */
+  .element {
+    position: absolute;
+    padding: 20px;
+    transition: opacity 0.5s ease, font-size 0.3s ease, color 0.3s ease;
+    z-index: 10;
+    max-width: 90%;
+    word-wrap: break-word;
+  }
+
+  .element.hidden { opacity: 0; pointer-events: none; }
+
+  /* Position mapping */
+  .pos-top-left      { top: 20px; left: 30px; }
+  .pos-top-center    { top: 20px; left: 50%; transform: translateX(-50%); }
+  .pos-top-right     { top: 20px; right: 30px; }
+  .pos-center-left   { top: 50%; left: 30px; transform: translateY(-50%); }
+  .pos-center        { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; }
+  .pos-center-right  { top: 50%; right: 30px; transform: translateY(-50%); }
+  .pos-bottom-left   { bottom: 20px; left: 30px; }
+  .pos-bottom-center { bottom: 20px; left: 50%; transform: translateX(-50%); width: 85%; }
+  .pos-bottom-right  { bottom: 20px; right: 30px; }
+
+  /* ── Verse ── */
+  #verse {
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  #verse.fade-out { opacity: 0; }
+  #verse.fade-in  { opacity: 1; }
+
+  /* ── Immagine slide (OpenLP) ── */
+  #slide-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 5;               /* sotto orologio/timer/avvisi (z-index 10) */
+    pointer-events: none;
+  }
+  #slide-image.visible { opacity: 1; }
+
+  /* ── Timer ── */
+  #timer { font-variant-numeric: tabular-nums; }
+  #timer.warning { color: #ff6600 !important; }
+  #timer.overtime { color: #ff2222 !important; }
+  #timer.expired  { color: #ff0000 !important; animation: pulse 1s infinite; }
+
+  /* ── Badge LIVE (OBS) ── */
+  #live { font-weight: bold; letter-spacing: 1px; }
+  #live .dot {
+    display: inline-block;
+    width: 0.55em; height: 0.55em;
+    border-radius: 50%;
+    margin-right: 0.35em;
+    vertical-align: middle;
+    background: currentColor;
+  }
+  #live.on .dot { animation: pulse 1.6s infinite; }
+  #live.standby { color: #00cc66 !important; }
+
+  /* ── Riquadro scena (OBS) ── */
+  #scene {
+    background: rgba(0,0,0,0.55);
+    border-radius: 6px;
+    padding: 6px 14px !important;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── Messaggio congregazione ── */
+  #congregation-msg {
+    background: rgba(0,0,0,0.7);
+    border-radius: 8px;
+    padding: 15px 30px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  #congregation-msg.visible { opacity: 1; }
+
+  /* ── Text shadow ── */
+  .text-shadow {
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5);
+  }
+
+  /* ── Status indicator ── */
+  #openlp-status {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #333;
+    z-index: 100;
+    transition: background 0.3s;
+  }
+  #openlp-status.connected { background: #00cc44; }
+  #openlp-status.error { background: #cc0000; }
+</style>
+</head>
+<body>
+  <div id="display-container">
+    <div id="openlp-status"></div>
+    <img id="slide-image" alt="">
+    <div id="clock" class="element pos-top-left"></div>
+    <div id="live" class="element pos-top-center hidden"></div>
+    <div id="timer" class="element pos-top-right"></div>
+    <div id="verse" class="element pos-center"></div>
+    <div id="title" class="element pos-bottom-left"></div>
+    <div id="scene" class="element pos-bottom-right hidden"></div>
+    <div id="congregation-msg" class="element pos-bottom-center"></div>
+  </div>
+
+<script>
+(function() {
+  // ── WebSocket ──
+  let ws = null;
+  let config = null;
+  let lastSlideText = '';
+  let lastPollItem = '';
+
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+    ws.onopen = () => console.log('[WS] Connesso');
+    ws.onclose = () => { console.log('[WS] Disconnesso, riconnessione...'); setTimeout(connectWS, 2000); };
+    ws.onerror = () => ws.close();
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        handleMessage(msg);
+      } catch {}
+    };
+  }
+
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'timer':
+        updateTimerDisplay(msg.data);
+        break;
+      case 'timer_expired': {
+        const el = document.getElementById('timer');
+        if (msg.data?.mode === 'blink') {
+          el.classList.add('expired');
+          const secs = (msg.data?.blinkSeconds || 10) * 1000;
+          clearTimeout(window._blinkTimeout);
+          window._blinkTimeout = setTimeout(() => el.classList.remove('expired'), secs);
+        } else {
+          // Modalità overtime: breve flash, poi rosso fisso via rendering
+          el.classList.add('expired');
+          setTimeout(() => el.classList.remove('expired'), 3000);
+        }
+        break;
+      }
+      case 'obs':
+        obsData = msg.data;
+        obsLastUpdate = Date.now();
+        renderObs();
+        break;
+      case 'config':
+        config = msg.data;
+        applyConfig(config);
+        break;
+      case 'congregation_message':
+        showCongregationMessage(msg.data);
+        break;
+      case 'projection':
+        if (typeof msg.data?.hideText === 'boolean') hideText = msg.data.hideText;
+        if (typeof msg.data?.hideImage === 'boolean') hideImage = msg.data.hideImage;
+        applyProjection();
+        break;
+    }
+  }
+
+  // ── OBS: badge LIVE e scena ──
+  let obsData = null;
+  let obsLastUpdate = 0;
+  const OBS_STALE_MS = 30000;  // dopo 30s senza aggiornamenti, nascondi
+
+  function renderObs() {
+    const liveEl = document.getElementById('live');
+    const sceneEl = document.getElementById('scene');
+    const stale = !obsData || (Date.now() - obsLastUpdate > OBS_STALE_MS);
+    const cfgLive = config?.elements?.live?.visible !== false;
+    const cfgScene = config?.elements?.scene?.visible !== false;
+
+    if (stale || !cfgLive) {
+      liveEl.classList.add('hidden');
+    } else {
+      liveEl.classList.remove('hidden');
+      if (obsData.live) {
+        liveEl.classList.add('on');
+        liveEl.classList.remove('standby');
+        liveEl.innerHTML = '<span class="dot"></span>LIVE';
+      } else {
+        liveEl.classList.remove('on');
+        liveEl.classList.add('standby');
+        liveEl.innerHTML = '<span class="dot"></span>';
+      }
+    }
+
+    if (stale || !cfgScene || !obsData?.scene) {
+      sceneEl.classList.add('hidden');
+    } else {
+      sceneEl.classList.remove('hidden');
+      sceneEl.textContent = obsData.scene;
+    }
+  }
+  setInterval(renderObs, 5000);  // ricontrolla la freschezza dei dati
+
+  // ── Proiezione ON/OFF ──
+  // Stato proiezione: due interruttori indipendenti
+  let hideText = false;    // nasconde versetti/canti
+  let hideImage = false;   // nasconde immagini
+  let currentIsImage = false;   // la slide corrente è un'immagine?
+
+  function applyProjection() {
+    const verseEl = document.getElementById('verse');
+    const titleEl = document.getElementById('title');
+    const imgEl = document.getElementById('slide-image');
+
+    const cfgVerse = config?.elements?.verse?.visible !== false;
+    const cfgTitle = config?.elements?.title?.visible !== false;
+
+    // Il testo (versetto+titolo) si vede solo se: la slide È testo,
+    // il layout lo prevede, e il testo non è stato nascosto dal pannello.
+    const showText = !currentIsImage && !hideText;
+    verseEl.classList.toggle('hidden', !(showText && cfgVerse));
+    titleEl.classList.toggle('hidden', !((!hideText) && cfgTitle));
+
+    // L'immagine si vede solo se: la slide È immagine e non è stata nascosta.
+    const showImage = currentIsImage && !hideImage;
+    imgEl.classList.toggle('visible', showImage);
+  }
+
+  // ── Config Application ──
+  function applyConfig(cfg) {
+    // Background
+    const container = document.getElementById('display-container');
+    container.style.backgroundColor = cfg.background.color || '#000';
+    if (cfg.background.image) {
+      container.style.backgroundImage = `url(${cfg.background.image})`;
+      container.style.backgroundSize = 'cover';
+      container.style.backgroundPosition = 'center';
+    } else {
+      container.style.backgroundImage = 'none';
+    }
+
+    // Elements
+    for (const [id, elCfg] of Object.entries(cfg.elements)) {
+      const domId = id === 'message' ? 'congregation-msg' : id;
+      const el = document.getElementById(domId);
+      if (!el) continue;
+
+      // Visibility
+      if (elCfg.visible) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+
+      // Styling
+      el.style.fontSize = elCfg.fontSize + 'px';
+      el.style.color = elCfg.fontColor;
+      el.style.fontFamily = elCfg.fontFamily;
+      el.style.textAlign = elCfg.textAlign || 'left';
+
+      // Text shadow
+      if (elCfg.textShadow) {
+        el.classList.add('text-shadow');
+      } else {
+        el.classList.remove('text-shadow');
+      }
+
+      // Position
+      el.className = el.className.replace(/pos-[\w-]+/g, '').trim();
+      el.classList.add('element', `pos-${elCfg.position}`);
+      if (!elCfg.visible) el.classList.add('hidden');
+      if (elCfg.textShadow) el.classList.add('text-shadow');
+    }
+
+    // La proiezione OFF ha priorità sulla config
+    applyProjection();
+    // Riapplica la visibilità configurata di badge LIVE e scena
+    renderObs();
+  }
+
+  // ── Clock ──
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+  }
+
+  // ── Timer Display ──
+  function updateTimerDisplay(data) {
+    const el = document.getElementById('timer');
+    if (data.total === 0 && data.remaining === 0 && !data.overtime) {
+      el.textContent = '';
+      el.classList.remove('warning', 'overtime', 'expired');
+      return;
+    }
+    el.classList.remove('warning', 'overtime');
+
+    if (data.overtime > 0) {
+      // Sforamento: conteggio in negativo, rosso fisso
+      const m = Math.floor(data.overtime / 60);
+      const s = data.overtime % 60;
+      el.textContent = `+${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      el.classList.add('overtime');
+    } else {
+      const m = Math.floor(data.remaining / 60);
+      const s = data.remaining % 60;
+      el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      if (data.remaining <= 60 && data.running) {
+        el.classList.add('warning');
+      }
+    }
+  }
+
+  // ── Congregation Message ──
+  function showCongregationMessage(data) {
+    const el = document.getElementById('congregation-msg');
+    if (data.text) {
+      el.textContent = data.text;
+      el.classList.add('visible');
+    } else {
+      el.classList.remove('visible');
+      setTimeout(() => { el.textContent = ''; }, 600);
+    }
+  }
+
+  // ── Wake Lock: impedisce lo spegnimento dello schermo ──
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          // Riprova quando viene rilasciato (es. cambio tab)
+          setTimeout(requestWakeLock, 1000);
+        });
+      }
+    } catch {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+  requestWakeLock();
+
+  // ── Fetch con timeout (evita richieste appese) ──
+  function fetchT(url, ms = 2000) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+  }
+
+  // ── OpenLP Polling ──
+  let pollInterval = null;
+  let pollInFlight = false;
+
+  async function pollOpenLP() {
+    if (pollInFlight) return;  // niente richieste sovrapposte
+    pollInFlight = true;
+    try {
+      const res = await fetchT('/openlp/api/poll');
+      if (!res.ok) throw new Error('Poll failed');
+      const data = await res.json();
+      document.getElementById('openlp-status').className = 'connected';
+
+      const itemId = data.results?.item || '';
+      const slideIdx = data.results?.slide;
+
+      // Se è cambiato qualcosa, aggiorna il testo
+      const key = `${itemId}_${slideIdx}`;
+      if (key !== lastPollItem) {
+        lastPollItem = key;
+        fetchSlideText();
+      }
+    } catch {
+      document.getElementById('openlp-status').className = 'error';
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  // ── Immagine live da OpenLP ──
+  // OpenLP 3.x:  /api/v2/core/live-image   → JSON con data URI
+  // OpenLP 2.4:  /main/image               → {"results":{"slide_image":"data:image/..."}}
+  let imageEndpoint = null;  // memorizza l'endpoint che funziona
+
+  function findDataImage(obj) {
+    // Cerca ricorsivamente una stringa "data:image/..." nel JSON
+    if (typeof obj === 'string') return obj.startsWith('data:image') ? obj : null;
+    if (obj && typeof obj === 'object') {
+      for (const v of Object.values(obj)) {
+        const r = findDataImage(v);
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+
+  async function fetchLiveImage() {
+    const candidates = imageEndpoint
+      ? [imageEndpoint]
+      : ['/openlp/api/v2/core/live-image', '/openlp/main/image'];
+    for (const ep of candidates) {
+      try {
+        const res = await fetchT(ep, 4000);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const uri = findDataImage(data);
+        if (uri) {
+          imageEndpoint = ep;  // ricordati quale versione di OpenLP risponde
+          return uri;
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  async function fetchSlideText() {
+    try {
+      const res = await fetchT('/openlp/api/controller/live/text', 3000);
+      if (!res.ok) return;
+      const data = await res.json();
+      const slides = data.results?.slides || [];
+      const itemTitle = data.results?.item || '';
+
+      // Trova la slide selezionata
+      const active = slides.find(s => s.selected) || slides[0];
+      // Il testo può stare in .text (semplice) o, se vuoto, in .html (es. versetti Bibbia)
+      let text = cleanText(active?.text || '');
+      if (!text.trim() && active?.html) text = cleanText(active.html);
+      const tag = active?.tag || '';
+
+      // È una slide-immagine SOLO se OpenLP fornisce davvero un'immagine (campo img).
+      // Non dedurre "immagine" dal testo vuoto: i versetti Bibbia possono avere .text
+      // vuoto ma il contenuto in .html, e verrebbero erroneamente nascosti.
+      const isImage = !!(active && active.img);
+
+      // Aggiorna il titolo
+      const titleEl = document.getElementById('title');
+      if (tag && !isImage) {
+        titleEl.textContent = `${itemTitle}  •  ${tag}`;
+      } else {
+        titleEl.textContent = itemTitle;
+      }
+
+      const imgEl = document.getElementById('slide-image');
+      const verseEl = document.getElementById('verse');
+
+      if (isImage) {
+        // ── Modalità immagine ──
+        currentIsImage = true;
+
+        // Svuota SUBITO il versetto: niente testo residuo sopra l'immagine
+        verseEl.classList.remove('fade-in', 'fade-out');
+        verseEl.textContent = '';
+        lastSlideText = '';
+
+        // 1) Prova l'immagine live in piena risoluzione
+        let uri = await fetchLiveImage();
+        // 2) Fallback: miniatura della slide via proxy
+        if (!uri && active.img) {
+          uri = '/openlp' + (active.img.startsWith('/') ? '' : '/') + active.img;
+        }
+        if (uri) imgEl.src = uri;
+
+        applyProjection();  // mostra immagine, nasconde versetto
+      } else {
+        // ── Modalità testo ──
+        const wasImage = currentIsImage;
+        currentIsImage = false;
+
+        // Uscendo dalla modalità immagine, stacca subito l'immagine
+        // così non resta sotto al testo
+        if (wasImage) {
+          imgEl.classList.remove('visible');
+          imgEl.removeAttribute('src');
+        }
+
+        applyProjection();  // nasconde immagine, mostra versetto
+
+        // Aggiorna il versetto con fade transition
+        if (text !== lastSlideText) {
+          verseEl.classList.add('fade-out');
+          setTimeout(() => {
+            verseEl.textContent = text;
+            lastSlideText = text;
+            verseEl.classList.remove('fade-out');
+            verseEl.classList.add('fade-in');
+          }, 300);
+        }
+      }
+    } catch {}
+  }
+
+  function cleanText(html) {
+    // Rimuovi tag HTML mantenendo il testo
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  }
+
+  // ── Init ──
+  connectWS();
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Poll OpenLP ogni 500ms
+  pollInterval = setInterval(pollOpenLP, 500);
+
+  // Fullscreen su doppio click
+  document.addEventListener('dblclick', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  // Nascondi cursore
+  document.addEventListener('mousemove', () => {
+    document.body.style.cursor = 'default';
+    clearTimeout(window._cursorTimeout);
+    window._cursorTimeout = setTimeout(() => {
+      document.body.style.cursor = 'none';
+    }, 3000);
+  });
+
+})();
+</script>
+</body>
+</html>
