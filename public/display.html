@@ -33,7 +33,7 @@
     word-wrap: break-word;
   }
 
-  .element.hidden { opacity: 0; pointer-events: none; }
+  .element.hidden { opacity: 0 !important; pointer-events: none; }
 
   /* Position mapping */
   .pos-top-left      { top: 20px; left: 30px; }
@@ -150,6 +150,7 @@
   let config = null;
   let lastSlideText = '';
   let lastPollItem = '';
+  let verseFadeTimer = null;
 
   function connectWS() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -488,11 +489,13 @@
       if (isImage) {
         // ── Modalità immagine ──
         currentIsImage = true;
+        clearTimeout(verseFadeTimer);
 
         // Svuota SUBITO il versetto: niente testo residuo sopra l'immagine
         verseEl.classList.remove('fade-in', 'fade-out');
         verseEl.textContent = '';
         lastSlideText = '';
+        applyProjection();  // nasconde subito il versetto, prima dell'await
 
         // 1) Prova l'immagine live in piena risoluzione
         let uri = await fetchLiveImage();
@@ -519,8 +522,10 @@
 
         // Aggiorna il versetto con fade transition
         if (text !== lastSlideText) {
+          clearTimeout(verseFadeTimer);
           verseEl.classList.add('fade-out');
-          setTimeout(() => {
+          verseFadeTimer = setTimeout(() => {
+            if (currentIsImage) return;
             verseEl.textContent = text;
             lastSlideText = text;
             verseEl.classList.remove('fade-out');
