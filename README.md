@@ -1,4 +1,4 @@
-# 🎬 Church Display — v4.5
+# 🎬 Church Display — v4.6
 
 Sistema di proiezione per chiesa con integrazione **OpenLP**: mostra sui monitor
 del palco versetti, canti, **immagini e presentazioni**, insieme a orologio,
